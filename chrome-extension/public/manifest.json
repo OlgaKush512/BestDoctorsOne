@@ -3,6 +3,10 @@
   "description": "Chrome side panel extension mirroring BestDoctor frontend features and using the existing backend.",
   "version": "0.1.0",
   "manifest_version": 3,
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
   "action": {
     "default_title": "BestDoctor"
   },
