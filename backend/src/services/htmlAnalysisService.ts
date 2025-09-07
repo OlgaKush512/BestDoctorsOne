@@ -1,4 +1,5 @@
-import OpenAI from 'openai';
+import { LLMFactory } from './llm/LLMFactory';
+import { LLMProvider, ChatMessage } from './llm/types';
 
 export interface ElementAnalysis {
   selector: string;
@@ -17,12 +18,10 @@ export interface PageAnalysis {
 }
 
 export class HtmlAnalysisService {
-  private openai: OpenAI;
+  private llm: LLMProvider;
 
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    this.llm = LLMFactory.create();
   }
 
   async analyzePageForElements(html: string, purpose: string): Promise<ElementAnalysis[]> {
@@ -32,23 +31,23 @@ export class HtmlAnalysisService {
 
       const prompt = this.buildAnalysisPrompt(truncatedHtml, purpose);
 
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert web scraping assistant. Analyze HTML and provide CSS selectors for specific elements. Always respond with valid JSON.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
+      const messages: ChatMessage[] = [
+        {
+          role: 'system',
+          content: 'You are an expert web scraping assistant. Analyze HTML and provide CSS selectors for specific elements. Always respond with valid JSON.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ];
+
+      const response = await this.llm.chat(messages, {
         temperature: 0.1,
-        max_tokens: 1000,
+        maxTokens: 1000,
       });
 
-      const content = response.choices[0]?.message?.content;
+      const content = response.content;
       if (!content) {
         throw new Error('No response from OpenAI');
       }

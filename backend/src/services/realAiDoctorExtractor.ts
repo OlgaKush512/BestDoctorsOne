@@ -1,4 +1,12 @@
+import { LLMFactory } from './llm/LLMFactory';
+import { LLMProvider, ChatMessage, Tool } from './llm/types';
+
 export class RealAIDoctorExtractor {
+  private llm: LLMProvider;
+
+  constructor() {
+    this.llm = LLMFactory.create();
+  }
   
   public async extractDoctorsFromHTML(html: string, searchParams: any): Promise<any[]> {
     console.log('🤖 Using REAL AI to extract doctors from HTML...');
@@ -79,47 +87,90 @@ Return only the JSON array, no other text or explanation.
   }
 
   private async callAIModel(prompt: string): Promise<string> {
-    // Здесь должен быть вызов к реальной AI модели
-    // Например, OpenAI GPT API, Claude API, или локальная модель
+    const providerInfo = LLMFactory.getProviderInfo();
     
-    // Для демонстрации используем fetch к OpenAI API
-    const apiKey = process.env.OPENAI_API_KEY;
-    
-    if (!apiKey) {
-      console.log('⚠️ No OpenAI API key found, using fallback analysis');
+    if (!providerInfo.hasApiKey) {
+      console.log(`⚠️ No ${providerInfo.provider} API key found, using fallback analysis`);
       return this.fallbackAIAnalysis(prompt);
     }
 
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an expert at extracting structured medical information from French websites. Always return valid JSON.'
-            },
-            {
-              role: 'user',
-              content: prompt
+      // Use function calling for structured extraction if supported
+      if (this.llm.supportsTools && this.llm.chatWithTools) {
+        const tool: Tool = {
+          type: 'function',
+          function: {
+            name: 'extract_doctors',
+            description: 'Extract structured doctor information from text',
+            parameters: {
+              type: 'object',
+              properties: {
+                doctors: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      name: { type: 'string' },
+                      specialty: { type: 'string' },
+                      address: { type: 'string' },
+                      phone: { type: 'string' },
+                      availability: { type: 'array', items: { type: 'string' } },
+                      doctolibUrl: { type: 'string' },
+                      next_availability: { type: 'string' }
+                    },
+                    required: ['name', 'specialty']
+                  }
+                }
+              },
+              required: ['doctors']
             }
-          ],
-          max_tokens: 2000,
-          temperature: 0.1
-        })
-      });
+          }
+        };
 
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
+        const messages: ChatMessage[] = [
+          {
+            role: 'system',
+            content: 'You are an expert at extracting structured medical information from French websites. Always return valid JSON.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ];
+
+        const result = await this.llm.chatWithTools(
+          messages,
+          [tool],
+          async (name, args) => {
+            if (name === 'extract_doctors') {
+              return args; // Return the extracted data
+            }
+            throw new Error(`Unknown function: ${name}`);
+          }
+        );
+
+        return typeof result === 'string' ? result : JSON.stringify(result);
       }
 
-      const data: any = await response.json();
-      return data.choices?.[0]?.message?.content || '[]';
+      // Fallback to regular chat completion
+      const messages: ChatMessage[] = [
+        {
+          role: 'system',
+          content: 'You are an expert at extracting structured medical information from French websites. Always return valid JSON.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ];
+
+      const response = await this.llm.chat(messages, {
+        temperature: 0.1,
+        maxTokens: 2000
+      });
+
+      return response.content || '[]';
 
     } catch (error) {
       console.error('OpenAI API call failed:', error);
