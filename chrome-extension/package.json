@@ -1,0 +1,30 @@
+{
+  "name": "bestdoctor-chrome-extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BestDoctor Chrome side panel extension mirroring the frontend UI and features.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 5174"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.11.4",
+    "@emotion/styled": "^11.11.5",
+    "@mui/icons-material": "^5.15.14",
+    "@mui/material": "^5.15.14",
+    "@mui/x-date-pickers": "^6.20.1",
+    "axios": "^1.6.8",
+    "dayjs": "^1.11.10",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.3.1"
+  }
+}
