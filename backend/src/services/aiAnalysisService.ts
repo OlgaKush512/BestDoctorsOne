@@ -1,5 +1,6 @@
-import OpenAI from "openai";
-import { GoogleReview, GoogleReviewsData } from "./googleReviewsService";
+import { LLMFactory } from "./llm/LLMFactory";
+import { LLMProvider, ChatMessage, Tool } from "./llm/types";
+import { GoogleReviewsData } from "./googleReviewsService";
 
 export interface AIAnalysisResult {
   score: number;
@@ -11,12 +12,10 @@ export interface AIAnalysisResult {
 }
 
 export class AIAnalysisService {
-  private openai: OpenAI;
+  private llm: LLMProvider;
 
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY || "",
-    });
+    this.llm = LLMFactory.create();
   }
 
   async analyzeReviews(
@@ -26,31 +25,79 @@ export class AIAnalysisService {
     try {
       console.log("🤖 Starting AI analysis of reviews...");
 
-      if (!process.env.OPENAI_API_KEY) {
-        console.log("⚠️ OpenAI API key not found, returning mock analysis");
+      const providerInfo = LLMFactory.getProviderInfo();
+      if (!providerInfo.hasApiKey) {
+        console.log(`⚠️ ${providerInfo.provider} API key not found, returning mock analysis`);
         return this.getMockAnalysis(reviewsData, userRequirements);
       }
 
       const prompt = this.buildAnalysisPrompt(reviewsData, userRequirements);
 
-      const completion = await this.openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a medical review analyst specializing in French healthcare. Analyze doctor reviews and provide insights based on user requirements. Respond in French and be objective and helpful.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
+      const messages: ChatMessage[] = [
+        {
+          role: "system",
+          content:
+            "You are a medical review analyst specializing in French healthcare. Analyze doctor reviews and provide insights based on user requirements. Respond in French and be objective and helpful.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ];
+
+      // Use function calling if supported for structured output
+      if (this.llm.supportsTools) {
+        const tool: Tool = {
+          type: 'function',
+          function: {
+            name: 'analyze_reviews',
+            description: 'Analyze doctor reviews and provide structured analysis',
+            parameters: {
+              type: 'object',
+              properties: {
+                score: { type: 'number', minimum: 0, maximum: 10 },
+                summary: { type: 'string' },
+                pros: { type: 'array', items: { type: 'string' } },
+                cons: { type: 'array', items: { type: 'string' } },
+                lgbtFriendly: { type: 'boolean' },
+                languages: { type: 'array', items: { type: 'string' } }
+              },
+              required: ['score', 'summary', 'pros', 'cons', 'lgbtFriendly', 'languages']
+            }
+          }
+        };
+
+        if (this.llm.chatWithTools) {
+          const result = await this.llm.chatWithTools(
+            messages,
+            [tool],
+            async (name, args) => args // Just return the structured data
+          );
+          
+          try {
+            const parsed = typeof result === 'string' ? JSON.parse(result) : result;
+            return {
+              score: Math.min(10, Math.max(0, parsed.score || 0)),
+              summary: parsed.summary || "Analyse non disponible",
+              pros: Array.isArray(parsed.pros) ? parsed.pros : [],
+              cons: Array.isArray(parsed.cons) ? parsed.cons : [],
+              lgbtFriendly: Boolean(parsed.lgbtFriendly),
+              languages: Array.isArray(parsed.languages) ? parsed.languages : [],
+            };
+          } catch (error) {
+            console.error('Failed to parse structured response:', error);
+            // Fall through to text parsing
+          }
+        }
+      }
+
+      // Fallback to regular chat completion
+      const completion = await this.llm.chat(messages, {
         temperature: 0.3,
-        max_tokens: 1000,
+        maxTokens: 1000,
       });
 
-      const response = completion.choices[0]?.message?.content;
+      const response = completion.content;
       if (!response) {
         throw new Error("No response from OpenAI");
       }

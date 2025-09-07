@@ -13,15 +13,17 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.5",
     "@playwright/mcp": "^0.0.36",
+    "@types/node-fetch": "^2.6.13",
     "@types/selenium-webdriver": "^4.1.28",
     "axios": "^1.6.2",
     "cheerio": "^1.0.0-rc.12",
-    "chromedriver": "^138.0.5",
+    "chromedriver": "^140.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
     "helmet": "^7.1.0",
+    "node-fetch": "^3.3.2",
     "openai": "^4.20.1",
     "selenium-webdriver": "^4.35.0",
     "zod": "^3.25.76"
