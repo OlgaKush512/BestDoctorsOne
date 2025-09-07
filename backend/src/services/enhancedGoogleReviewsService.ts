@@ -3,7 +3,8 @@ import * as cheerio from "cheerio";
 import { Builder, By, WebDriver, until, WebElement } from 'selenium-webdriver';
 import { Options as ChromeOptions } from 'selenium-webdriver/chrome';
 import { HtmlAnalysisService } from './htmlAnalysisService';
-import OpenAI from 'openai';
+import { LLMFactory } from './llm/LLMFactory';
+import { LLMProvider, ChatMessage } from './llm/types';
 
 export interface GoogleReview {
   author: string;
@@ -34,13 +35,11 @@ export class EnhancedGoogleReviewsService {
   private mapsUrl = "https://www.google.com/maps";
   private driver: WebDriver | null = null;
   private htmlAnalysisService: HtmlAnalysisService;
-  private openai: OpenAI;
+  private llm: LLMProvider;
 
   constructor() {
     this.htmlAnalysisService = new HtmlAnalysisService();
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY || "",
-    });
+    this.llm = LLMFactory.create();
   }
 
   private async initDriver(): Promise<WebDriver> {
@@ -294,23 +293,23 @@ Respond with a JSON array of review objects in this format:
 ]
 `;
 
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert at extracting review data from HTML. Return only valid JSON arrays of review objects.'
-          },
-          {
-            role: 'user',
-            content: analysisPrompt
-          }
-        ],
+      const messages: ChatMessage[] = [
+        {
+          role: 'system',
+          content: 'You are an expert at extracting review data from HTML. Return only valid JSON arrays of review objects.'
+        },
+        {
+          role: 'user',
+          content: analysisPrompt
+        }
+      ];
+
+      const response = await this.llm.chat(messages, {
         temperature: 0.1,
-        max_tokens: 2000,
+        maxTokens: 2000,
       });
 
-      const content = response.choices[0]?.message?.content || '[]';
+      const content = response.content || '[]';
 
       // Clean up the response
       let jsonContent = content.trim();
@@ -373,23 +372,23 @@ Respond in JSON format:
 }
 `;
 
-        const response = await this.openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a medical review analyst. Analyze reviews and provide structured insights.'
-            },
-            {
-              role: 'user',
-              content: analysisPrompt
-            }
-          ],
+        const messages: ChatMessage[] = [
+          {
+            role: 'system',
+            content: 'You are a medical review analyst. Analyze reviews and provide structured insights.'
+          },
+          {
+            role: 'user',
+            content: analysisPrompt
+          }
+        ];
+
+        const response = await this.llm.chat(messages, {
           temperature: 0.2,
-          max_tokens: 500,
+          maxTokens: 500,
         });
 
-        const content = response.choices[0]?.message?.content || '{}';
+        const content = response.content || '{}';
         let analysis = {};
 
         try {
