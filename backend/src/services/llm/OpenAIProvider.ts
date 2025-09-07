@@ -12,7 +12,7 @@ export class OpenAIProvider implements LLMProvider {
   async chat(messages: ChatMessage[], options?: ChatOptions): Promise<ChatResponse> {
     try {
       const requestParams: any = {
-        model: options?.model || 'gpt-3.5-turbo',
+        model: options?.model || 'gpt-4o',
         messages: messages.map(msg => {
           const cleanMsg: any = { role: msg.role, content: msg.content };
           if (msg.tool_calls) cleanMsg.tool_calls = msg.tool_calls;
