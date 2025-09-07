@@ -1,0 +1,18 @@
+{
+  "name": "mcp-doctolib-mvp",
+  "version": "0.1.0",
+  "description": "MVP: Function calling + MCP Playwright to query Doctolib via OpenAI API standard with Blackbox provider.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --env-file=.env src/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "@playwright/mcp": "^0.0.36",
+    "dotenv": "^16.4.5",
+    "openai": "^5.19.1",
+    "zod": "^3.23.8"
+  }
+}
